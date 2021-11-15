@@ -3,82 +3,57 @@ package main
 import (
 	"flag"
 	"github.com/bwmarrin/discordgo"
+	"gorm.io/gorm"
 	"log"
 	"os"
 	"os/signal"
 )
 
 var s *discordgo.Session
+var database *gorm.DB
 
 func init() { flag.Parse() }
 
 func init() {
 	var err error
 	s, err = discordgo.New("Bot " + os.Getenv("CHEST_BOT_TOKEN"))
+	database = buildDatabase()
 	if err != nil {
 		log.Fatalf("Invalid bot parameters: %v", err)
 	}
 }
 
 var (
-	GuildID  = ""
-	commands = []*discordgo.ApplicationCommand{
-		{
-			Name:        "hello",
-			Description: "Say hello",
-		},
-		{
-			Name:        "info",
-			Description: "Get information about Programm Chest",
-		},
-	}
-	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-		"info": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: "Hello, I'm a bot!",
-					Flags:   1 << 6,
-					Components: []discordgo.MessageComponent{
-						discordgo.Button{
-							Emoji: discordgo.ComponentEmoji{Name: "🌐"},
-							Label: "Visit website",
-							URL:   "https://programm-chest.dev",
-						},
-					},
-				},
-			})
-		},
-		"hello": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: "Hello :D",
-					Flags:   1 << 6,
-					Components: []discordgo.MessageComponent{
-						discordgo.ActionsRow{
-							Components: []discordgo.MessageComponent{
-								discordgo.Button{
-									Emoji: discordgo.ComponentEmoji{ID: "834458109480140850>"},
-									Label: "Click me",
-									Style: discordgo.LinkButton,
-									URL:   "https://linwood.dev",
-								},
-							},
-						},
-					},
-				},
-			})
-		},
-	}
+	GuildID = ""
 )
 
+func commands() []*discordgo.ApplicationCommand {
+	var commands []*discordgo.ApplicationCommand
+	commands = append(commands, funCommands...)
+	commands = append(commands, economyCommands...)
+	return commands
+}
+
 func init() {
+	ms := []map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
+		economyCommandHandlers,
+		funCommandHandlers,
+	}
+	res := map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){}
+	for _, m := range ms {
+		for k, v := range m {
+			res[k] = v
+		}
+	}
+
 	s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
+		if h, ok := res[i.ApplicationCommandData().Name]; ok {
 			h(s, i)
 		}
 	})
+}
+func setup() {
+	setupEconomy()
 }
 
 func main() {
@@ -89,8 +64,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Cannot open the session: %v", err)
 	}
+	setup()
 
-	for _, v := range commands {
+	for _, v := range commands() {
 		_, err := s.ApplicationCommandCreate(s.State.User.ID, GuildID, v)
 		if err != nil {
 			log.Panicf("Cannot create '%v' command: %v", v.Name, err)
