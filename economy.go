@@ -3,12 +3,10 @@ package main
 import (
 	"fmt"
 	"github.com/bwmarrin/discordgo"
-	"gorm.io/gorm"
 )
 
 type EconomyUser struct {
-	gorm.Model
-	ID    string
+	ID    string `gorm:"primarykey"`
 	Coins int
 }
 
@@ -21,9 +19,9 @@ func (e *EconomyUser) RemoveCoins(amount int) {
 func (e *EconomyUser) Save() {
 	database.Save(e)
 }
-func GetEconomyUser(authorId string) *EconomyUser {
-	eu := EconomyUser{ID: authorId, Coins: 0}
-	database.FirstOrCreate(&eu, authorId)
+func GetEconomyUser(userID string) *EconomyUser {
+	eu := EconomyUser{ID: userID, Coins: 0}
+	database.FirstOrCreate(&eu, userID)
 	return &eu
 }
 
@@ -75,7 +73,6 @@ var (
 				user := i.ApplicationCommandData().Options[0].UserValue(s)
 				eu := GetEconomyUser(user.ID)
 				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
 						Content: fmt.Sprintf("%s has %d coins.", user.Username, eu.Coins),
@@ -84,7 +81,6 @@ var (
 			} else {
 				eu := GetEconomyUser(i.Member.User.ID)
 				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
 						Content: fmt.Sprintf("You have %d coins.", eu.Coins),
