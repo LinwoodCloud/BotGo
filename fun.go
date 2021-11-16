@@ -22,12 +22,16 @@ var (
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Content: "Hello, I'm a bot!",
-					Flags:   1 << 6,
 					Components: []discordgo.MessageComponent{
-						discordgo.Button{
-							Emoji: discordgo.ComponentEmoji{Name: "🌐"},
-							Label: "Visit website",
-							URL:   "https://programm-chest.dev",
+						discordgo.ActionsRow{
+							Components: []discordgo.MessageComponent{
+								discordgo.Button{
+									Emoji: discordgo.ComponentEmoji{Name: "🌐"},
+									Label: "Visit website",
+									URL:   "https://programm-chest.dev",
+									Style: discordgo.LinkButton,
+								},
+							},
 						},
 					},
 				},
@@ -38,12 +42,11 @@ var (
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Content: "Hello :D",
-					Flags:   1 << 6,
 					Components: []discordgo.MessageComponent{
 						discordgo.ActionsRow{
 							Components: []discordgo.MessageComponent{
 								discordgo.Button{
-									Emoji: discordgo.ComponentEmoji{ID: "834458109480140850>"},
+									Emoji: discordgo.ComponentEmoji{ID: "834458109480140850"},
 									Label: "Click me",
 									Style: discordgo.LinkButton,
 									URL:   "https://linwood.dev",

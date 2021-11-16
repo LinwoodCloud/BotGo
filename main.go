@@ -66,11 +66,14 @@ func main() {
 	}
 	setup()
 
-	for _, v := range commands() {
-		_, err := s.ApplicationCommandCreate(s.State.User.ID, GuildID, v)
+	commands := commands()
+	cmdIDs := make(map[string]string, len(commands))
+	for _, v := range commands {
+		rcmd, err := s.ApplicationCommandCreate(s.State.User.ID, GuildID, v)
 		if err != nil {
 			log.Panicf("Cannot create '%v' command: %v", v.Name, err)
 		}
+		cmdIDs[rcmd.ID] = rcmd.Name
 	}
 
 	defer s.Close()
@@ -79,4 +82,11 @@ func main() {
 	signal.Notify(stop, os.Interrupt)
 	<-stop
 	log.Println("Gracefully shutting down")
+
+	for id, name := range cmdIDs {
+		err := s.ApplicationCommandDelete(s.State.User.ID, GuildID, id)
+		if err != nil {
+			log.Fatalf("Cannot delete slash command %q: %v", name, err)
+		}
+	}
 }
