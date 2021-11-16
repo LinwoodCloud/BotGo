@@ -97,10 +97,20 @@ var (
 				i.ApplicationCommandData().Options[0].UserValue(s).ID,
 				i.ApplicationCommandData().Options[1].IntValue(),
 			}
+			if i.Member.Permissions&discordgo.PermissionManageServer == 0 {
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Flags:   1 << 6,
+						Content: "You don't have permission to do that.",
+					},
+				})
+			}
 			if len(margs) != 2 {
 				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
+						Flags:   1 << 6,
 						Content: "Invalid arguments.",
 					},
 				})

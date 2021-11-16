@@ -29,6 +29,7 @@ var (
 
 func commands() []*discordgo.ApplicationCommand {
 	var commands []*discordgo.ApplicationCommand
+	commands = append(commands, adminCommands...)
 	commands = append(commands, funCommands...)
 	commands = append(commands, economyCommands...)
 	return commands
@@ -36,6 +37,7 @@ func commands() []*discordgo.ApplicationCommand {
 
 func init() {
 	ms := []map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
+		adminCommandHandlers,
 		economyCommandHandlers,
 		funCommandHandlers,
 	}

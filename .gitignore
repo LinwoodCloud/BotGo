@@ -16,6 +16,8 @@
 
 # Runtime data
 database.db
+chestBot
+chestBot.exe
 
 # Editor related
 .idea/
