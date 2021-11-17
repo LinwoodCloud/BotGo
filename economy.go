@@ -33,12 +33,12 @@ var (
 	economyCommands = []*discordgo.ApplicationCommand{
 		{
 			Name:        "coins",
-			Description: "Displays the amount of coins you have.",
+			Description: "Displays the amount of coins the user has.",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Type:        discordgo.ApplicationCommandOptionUser,
 					Name:        "user",
-					Description: "The user that will be given the coins",
+					Description: "The user to check the coins of.",
 					Required:    false,
 				},
 			},

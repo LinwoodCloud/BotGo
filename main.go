@@ -42,6 +42,7 @@ func init() {
 
 var (
 	GuildID = ""
+	Cleanup = flag.Bool("cleanup", true, "Cleanup of commands")
 )
 
 func commands() []*discordgo.ApplicationCommand {
@@ -103,6 +104,9 @@ func main() {
 	<-stop
 	log.Println("Gracefully shutting down")
 
+	if !*Cleanup {
+		return
+	}
 	for id, name := range cmdIDs {
 		err := s.ApplicationCommandDelete(s.State.User.ID, GuildID, id)
 		if err != nil {
