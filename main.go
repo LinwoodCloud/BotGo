@@ -14,15 +14,6 @@ var database *gorm.DB
 
 func init() { flag.Parse() }
 
-func init() {
-	var err error
-	s, err = discordgo.New("Bot " + os.Getenv("CHEST_BOT_TOKEN"))
-	database = buildDatabase()
-	if err != nil {
-		log.Fatalf("Invalid bot parameters: %v", err)
-	}
-}
-
 var (
 	GuildID = ""
 )
@@ -35,7 +26,38 @@ func commands() []*discordgo.ApplicationCommand {
 	return commands
 }
 
-func init() {
+func setup() {
+	setupCore()
+	setupEconomy()
+}
+
+func main() {
+	var err error
+	s, err = discordgo.New("Bot " + os.Getenv("CHEST_BOT_TOKEN"))
+	database = buildDatabase()
+	if err != nil {
+		log.Fatalf("Invalid bot parameters: %v", err)
+	}
+	s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
+		log.Println("Bot is up!")
+	})
+
+	err = s.Open()
+	if err != nil {
+		log.Fatalf("Cannot open the session: %v", err)
+	}
+	setup()
+
+	commands := commands()
+	cmdIDs := make(map[string]string, len(commands))
+	for _, v := range commands {
+		rcmd, err := s.ApplicationCommandCreate(s.State.User.ID, GuildID, v)
+		if err != nil {
+			log.Panicf("Cannot create '%v' command: %v", v.Name, err)
+		}
+		cmdIDs[rcmd.ID] = rcmd.Name
+	}
+
 	ms := []map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		adminCommandHandlers,
 		economyCommandHandlers,
@@ -53,31 +75,6 @@ func init() {
 			h(s, i)
 		}
 	})
-}
-func setup() {
-	setupCore()
-	setupEconomy()
-}
-
-func main() {
-	s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
-		log.Println("Bot is up!")
-	})
-	err := s.Open()
-	if err != nil {
-		log.Fatalf("Cannot open the session: %v", err)
-	}
-	setup()
-
-	commands := commands()
-	cmdIDs := make(map[string]string, len(commands))
-	for _, v := range commands {
-		rcmd, err := s.ApplicationCommandCreate(s.State.User.ID, GuildID, v)
-		if err != nil {
-			log.Panicf("Cannot create '%v' command: %v", v.Name, err)
-		}
-		cmdIDs[rcmd.ID] = rcmd.Name
-	}
 
 	defer s.Close()
 
