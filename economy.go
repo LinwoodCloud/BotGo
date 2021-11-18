@@ -2,12 +2,12 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"github.com/bwmarrin/discordgo"
 )
 
 type EconomyUser struct {
 	User       string `gorm:"primaryKey"`
+	Team       string `gorm:"primaryKey"`
 	Currency   EconomyCurrency
 	CurrencyID int64 `gorm:"default:0;primaryKey"`
 	Amount     int
@@ -34,8 +34,12 @@ func (e *EconomyUser) Save() {
 }
 func GetEconomyUser(userID string, currency int64) *EconomyUser {
 	eu := EconomyUser{User: userID, Amount: 0}
-	// Get user and currency
 	database.Where(&EconomyUser{User: userID, CurrencyID: currency}).First(&eu)
+	return &eu
+}
+func GetEconomyUsers(userID string) *EconomyUser {
+	eu := EconomyUser{User: userID, Amount: 0}
+	database.Where(&EconomyUser{User: userID}).First(&eu)
 	return &eu
 }
 
@@ -163,29 +167,28 @@ var (
 	}
 	economyCommandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		"coins": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			if len(i.ApplicationCommandData().Options) > 0 && i.ApplicationCommandData().Options[0].UserValue(s) != nil {
-				user := i.ApplicationCommandData().Options[0].UserValue(s)
-				eu := GetEconomyUser(user.ID)
-				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseChannelMessageWithSource,
-					Data: &discordgo.InteractionResponseData{
-						Content: fmt.Sprintf("%s has %d coins.", user.Username, eu.Coins),
-					},
-				})
-			} else {
-				eu := GetEconomyUser(i.Member.User.ID)
-				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseChannelMessageWithSource,
-					Data: &discordgo.InteractionResponseData{
-						Content: fmt.Sprintf("You have %d coins.", eu.Amount),
-					},
-				})
-			}
+			/*if len(i.ApplicationCommandData().Options) > 0 && i.ApplicationCommandData().Options[0].UserValue(s) != nil {
+							user := i.ApplicationCommandData().Options[0].UserValue(s)
+							eus := GetEconomyUsers(user.ID)
+							if len(eus) == 0 {
+			                    s.ChannelMessageSend(i.ChannelID, "That user has no coins.")
+			                    return
+			                }
+
+						} else {
+							eu := GetEconomyUser(i.Member.User.ID)
+							s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+								Type: discordgo.InteractionResponseChannelMessageWithSource,
+								Data: &discordgo.InteractionResponseData{
+									Content: fmt.Sprintf("You have %d coins.", eu.Amount),
+								},
+							})
+						}*/
 		},
 		"coinsadmin": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			switch i.ApplicationCommandData().Options[0].Name {
 			case "add":
-				if i.Member.Permissions&discordgo.PermissionManageServer == 0 {
+				/*if i.Member.Permissions&discordgo.PermissionManageServer == 0 {
 					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 						Type: discordgo.InteractionResponseChannelMessageWithSource,
 						Data: &discordgo.InteractionResponseData{
@@ -206,7 +209,7 @@ var (
 					Data: &discordgo.InteractionResponseData{
 						Content: fmt.Sprintf("You have added %d coins to %s.", count, user.Username),
 					},
-				})
+				})*/
 			}
 		},
 	}
