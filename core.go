@@ -31,7 +31,7 @@ func GetUser(userID string) *CoreUser {
 	database.FirstOrCreate(&cu, userID)
 	return &cu
 }
-func setupCore() {
+func SetupCore() {
 	database.AutoMigrate(&CoreUser{})
 }
 

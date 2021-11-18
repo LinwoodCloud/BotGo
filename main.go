@@ -50,6 +50,7 @@ func commands() []*discordgo.ApplicationCommand {
 	commands = append(commands, adminCommands...)
 	commands = append(commands, funCommands...)
 	commands = append(commands, economyCommands...)
+	commands = append(commands, skillCommands...)
 	return commands
 }
 
@@ -58,6 +59,7 @@ func init() {
 		adminCommandHandlers,
 		economyCommandHandlers,
 		funCommandHandlers,
+		skillCommandHandlers,
 	}
 	res := map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){}
 	for _, m := range ms {
@@ -72,9 +74,10 @@ func init() {
 		}
 	})
 }
-func setup() {
-	setupCore()
-	setupEconomy()
+func Setup() {
+	SetupCore()
+	SetupEconomy()
+	SetupSkill()
 }
 
 func main() {
@@ -85,7 +88,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Cannot open the session: %v", err)
 	}
-	setup()
+	Setup()
 
 	commands := commands()
 	cmdIDs := make(map[string]string, len(commands))

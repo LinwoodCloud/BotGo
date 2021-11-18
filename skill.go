@@ -17,10 +17,51 @@ type Skill struct {
 	Link     string
 }
 
-func GetSkillUser(userID string) *SkillUser {
-	su := SkillUser{ID: userID}
-	database.FirstOrCreate(&su, userID)
-	return &su
+func GetSkillsByUser(userID string) []*Skill {
+	var skills []SkillUser
+	database.Where("user = ?", userID).Find(&skills)
+	var skillList []*Skill
+	for _, skill := range skills {
+		var skillData Skill
+		database.Where("id = ?", skill.Skill).Find(&skillData)
+		skillList = append(skillList, &skillData)
+	}
+	return skillList
+}
+func GetCategorySkills(category string) []*Skill {
+	var skills []*Skill
+	database.Where("category = ?", category).Find(&skills)
+	return skills
+}
+func GetSkillCategoriesByUser(userID string) []string {
+	var skills []SkillUser
+	database.Where("user = ?", userID).Find(&skills)
+	var skillCategories []string
+	for _, skill := range skills {
+		var skillData Skill
+		database.Where("id = ?", skill.Skill).Find(&skillData)
+		if *skillData.Category != "" {
+			skillCategories = append(skillCategories, *skillData.Category)
+		}
+	}
+	return skillCategories
+}
+func GetSkillsByUserAndCategory(userID string, category string) []*Skill {
+	var skills []SkillUser
+	database.Where("user = ? AND category = ?", userID, category).Find(&skills)
+	var skillList []*Skill
+	for _, skill := range skills {
+		var skillData Skill
+		database.Where("id = ?", skill.Skill).Find(&skillData)
+		skillList = append(skillList, &skillData)
+	}
+	return skillList
+}
+
+func (su SkillUser) GetSkill() *Skill {
+	s := Skill{}
+	database.First(&s, su.Skill)
+	return &s
 }
 
 func GetSkill(name string) *Skill {
@@ -29,8 +70,35 @@ func GetSkill(name string) *Skill {
 	return &s
 }
 
-func setupSkill() {
+func SetupSkill() {
 	database.AutoMigrate(&SkillUser{})
+	database.AutoMigrate(&Skill{})
+}
+
+func EmbedSkills(skills []*Skill) []*discordgo.MessageEmbedField {
+	var fields []*discordgo.MessageEmbedField
+	skillByCategory := make(map[*string][]*Skill)
+	for _, skill := range skills {
+		if _, ok := skillByCategory[skill.Category]; !ok {
+			skillByCategory[skill.Category] = make([]*Skill, 0)
+		}
+		skillByCategory[skill.Category] = append(skillByCategory[skill.Category], skill)
+	}
+	for category, skills := range skillByCategory {
+		fields = append(fields, &discordgo.MessageEmbedField{
+			Name:   "**" + *category + "**",
+			Value:  "",
+			Inline: false,
+		})
+		for _, skill := range skills {
+			fields = append(fields, &discordgo.MessageEmbedField{
+				Name:   skill.Name,
+				Value:  skill.Link,
+				Inline: true,
+			})
+		}
+	}
+	return fields
 }
 
 var (
@@ -154,13 +222,45 @@ var (
 		"skills": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			if len(i.ApplicationCommandData().Options) > 0 && i.ApplicationCommandData().Options[0].UserValue(s) != nil {
 				user := i.ApplicationCommandData().Options[0].UserValue(s)
-				su := GetSkillUser(user.ID)
+				cateogries := GetSkillCategoriesByUser(user.ID)
+				if len(cateogries) == 0 {
+					s.ChannelMessageSend(i.ChannelID, "No skills found for user "+user.Username)
+					return
+				}
+
+				skills := GetSkillsByUserAndCategory(user.ID, cateogries[0])
+
+				embed := &discordgo.MessageEmbed{
+					Title:  "Skills",
+					Color:  0x00ff00,
+					Fields: EmbedSkills(skills),
+				}
+				options := make([]discordgo.SelectMenuOption, 0)
+				for _, category := range cateogries {
+					options = append(options, discordgo.SelectMenuOption{
+						Label: category,
+						Value: category,
+					})
+				}
 				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
-						Content: fmt.Sprintf("%s has %d coins.", user.Username, su.Skill),
+						Content: " ",
+						Embeds:  []*discordgo.MessageEmbed{embed},
+						Components: []discordgo.MessageComponent{
+							discordgo.ActionsRow{
+								Components: []discordgo.MessageComponent{
+									discordgo.SelectMenu{
+										CustomID:    "skills",
+										Placeholder: "Select a category",
+										Options:     options,
+									},
+								},
+							},
+						},
 					},
 				})
+
 			} else {
 				eu := GetEconomyUser(i.Member.User.ID)
 				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

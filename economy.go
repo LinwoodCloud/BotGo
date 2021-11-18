@@ -25,7 +25,7 @@ func GetEconomyUser(userID string) *EconomyUser {
 	return &eu
 }
 
-func setupEconomy() {
+func SetupEconomy() {
 	database.AutoMigrate(&EconomyUser{})
 }
 
