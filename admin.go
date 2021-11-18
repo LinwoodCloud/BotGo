@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/bwmarrin/discordgo"
+	"time"
 )
 
 var (
@@ -20,9 +21,14 @@ var (
 	}
 	adminCommandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		"userinfo": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			user := i.Member.User
+			member := i.Member
+			user := member.User
 			if len(i.ApplicationCommandData().Options) == 1 {
 				user = i.ApplicationCommandData().Options[0].UserValue(s)
+			}
+			joined, err := member.JoinedAt.Parse()
+			if err != nil {
+				return
 			}
 			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -42,6 +48,16 @@ var (
 							{
 								Name:   "ID",
 								Value:  user.ID,
+								Inline: true,
+							},
+							{
+								Name:   "Discriminator",
+								Value:  user.Discriminator,
+								Inline: true,
+							},
+							{
+								Name:   "Joined",
+								Value:  joined.Format(time.RFC3339),
 								Inline: true,
 							},
 						},

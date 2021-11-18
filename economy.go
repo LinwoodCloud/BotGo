@@ -1,37 +1,41 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/bwmarrin/discordgo"
 )
 
 type EconomyUser struct {
-	ID    string `gorm:"primarykey"`
-	Coins int
+	User       string `gorm:"primaryKey"`
+	Currency   EconomyCurrency
+	CurrencyID int64 `gorm:"default:0;primaryKey"`
+	Amount     int
 }
 
 type EconomyCurrency struct {
-	ID          string `gorm:"primarykey"`
+	ID          string `gorm:"primaryKey"`
 	Name        string
-	ShortName   string
+	PluralName  string
 	Description string
 	Tradeable   bool
-	Icon        string
-	CustomIcon  bool
+	Emoji       sql.NullString
+	CustomEmoji bool
 }
 
 func (e *EconomyUser) AddCoins(amount int) {
-	e.Coins += amount
+	e.Amount += amount
 }
 func (e *EconomyUser) RemoveCoins(amount int) {
-	e.Coins -= amount
+	e.Amount -= amount
 }
 func (e *EconomyUser) Save() {
 	database.Save(e)
 }
-func GetEconomyUser(userID string) *EconomyUser {
-	eu := EconomyUser{ID: userID, Coins: 0}
-	database.FirstOrCreate(&eu, userID)
+func GetEconomyUser(userID string, currency int64) *EconomyUser {
+	eu := EconomyUser{User: userID, Amount: 0}
+	// Get user and currency
+	database.Where(&EconomyUser{User: userID, CurrencyID: currency}).First(&eu)
 	return &eu
 }
 
@@ -76,6 +80,66 @@ var (
 						},
 					},
 				},
+				{
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Name:        "remove",
+					Description: "Remove coins from a user.",
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionUser,
+							Name:        "user",
+							Description: "The user that will have their coins removed",
+							Required:    true,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionInteger,
+							Name:        "count",
+							Description: "The count of points which will be removed",
+							Required:    true,
+						},
+					},
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Name:        "set",
+					Description: "Set the amount of coins a user has.",
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Type:        discordgo.ApplicationCommandOptionUser,
+							Name:        "user",
+							Description: "The user that will have their coins set",
+							Required:    true,
+						},
+						{
+							Type:        discordgo.ApplicationCommandOptionInteger,
+							Name:        "count",
+							Description: "The count of points which will be set",
+							Required:    true,
+						},
+					},
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Name:        "create",
+					Description: "Create a new currency.",
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Name:        "name",
+							Type:        discordgo.ApplicationCommandOptionString,
+							Description: "The name of the currency.",
+							Required:    true,
+						},
+						{
+							Name:        "shortname",
+							Type:        discordgo.ApplicationCommandOptionString,
+							Description: "The short name of the currency.",
+							Required:    false,
+						},
+						{
+							Name: "emoji",
+						},
+					},
+				},
 			},
 		},
 		{
@@ -113,7 +177,7 @@ var (
 				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
-						Content: fmt.Sprintf("You have %d coins.", eu.Coins),
+						Content: fmt.Sprintf("You have %d coins.", eu.Amount),
 					},
 				})
 			}

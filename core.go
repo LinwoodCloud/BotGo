@@ -6,7 +6,7 @@ import (
 )
 
 type CoreUser struct {
-	ID     string `gorm:"primarykey"`
+	ID     string `gorm:"primaryKey"`
 	Locale sql.NullString
 }
 

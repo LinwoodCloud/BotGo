@@ -6,17 +6,17 @@ import (
 
 type SkillUser struct {
 	ID    string
-	User  string `gorm:"primarykey"`
+	User  string `gorm:"primaryKey"`
 	Skill string
 }
 type Skill struct {
-	ID       string  `gorm:"primarykey"`
+	ID       string  `gorm:"primaryKey"`
 	Category *string `gorm:"default:''"`
 	Name     string
 	Link     string
 }
 type SkillCategory struct {
-	ID            string `gorm:"primarykey"`
+	ID            string `gorm:"primaryKey"`
 	Name          string
 	Description   string
 	Emoji         string

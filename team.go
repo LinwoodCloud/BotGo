@@ -3,7 +3,7 @@ package main
 import "github.com/bwmarrin/discordgo"
 
 type Team struct {
-	Name        string
+	Name        string `gorm:"primary_key"`
 	Description string
 	Members     []string
 }
