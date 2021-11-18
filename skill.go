@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -15,6 +14,13 @@ type Skill struct {
 	Category *string `gorm:"default:''"`
 	Name     string
 	Link     string
+}
+type SkillCategory struct {
+	ID            string `gorm:"primarykey"`
+	Name          string
+	Description   string
+	Emoji         string
+	IsCustomEmoji bool
 }
 
 func GetSkillsByUser(userID string) []*Skill {
@@ -123,12 +129,12 @@ var (
 		},
 		{
 			Name:        "skills",
-			Description: "Get all skills",
+			Description: "Get all skills from an user",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Name:        "user",
 					Description: "The user to check the skills of.",
-					Type:        discordgo.ApplicationCommandOptionString,
+					Type:        discordgo.ApplicationCommandOptionUser,
 					Required:    false,
 				},
 			},
@@ -224,7 +230,10 @@ var (
 				user := i.ApplicationCommandData().Options[0].UserValue(s)
 				cateogries := GetSkillCategoriesByUser(user.ID)
 				if len(cateogries) == 0 {
-					s.ChannelMessageSend(i.ChannelID, "No skills found for user "+user.Username)
+					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{
+							Content: "No skills found for user " + user.Username}})
 					return
 				}
 
@@ -262,11 +271,45 @@ var (
 				})
 
 			} else {
-				eu := GetEconomyUser(i.Member.User.ID)
+				cateogries := GetSkillCategoriesByUser(i.Member.User.ID)
+				if len(cateogries) == 0 {
+					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{
+							Content: "No skills found for user " + i.Member.User.Username}})
+					return
+				}
+
+				skills := GetSkillsByUserAndCategory(i.Member.User.ID, cateogries[0])
+
+				embed := &discordgo.MessageEmbed{
+					Title:  "Skills",
+					Color:  0x00ff00,
+					Fields: EmbedSkills(skills),
+				}
+				options := make([]discordgo.SelectMenuOption, 0)
+				for _, category := range cateogries {
+					options = append(options, discordgo.SelectMenuOption{
+						Label: category,
+						Value: category,
+					})
+				}
 				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
-						Content: fmt.Sprintf("You have %d coins.", eu.Coins),
+						Content: " ",
+						Embeds:  []*discordgo.MessageEmbed{embed},
+						Components: []discordgo.MessageComponent{
+							discordgo.ActionsRow{
+								Components: []discordgo.MessageComponent{
+									discordgo.SelectMenu{
+										CustomID:    "skills",
+										Placeholder: "Select a category",
+										Options:     options,
+									},
+								},
+							},
+						},
 					},
 				})
 			}
