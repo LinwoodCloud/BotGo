@@ -1,9 +1,13 @@
 package main
 
-import "github.com/bwmarrin/discordgo"
+import (
+	"fmt"
+	"github.com/bwmarrin/discordgo"
+)
 
 type SkillUser struct {
-	ID    string `gorm:"primarykey"`
+	ID    string
+	User  string `gorm:"primarykey"`
 	Skill string
 }
 type Skill struct {
@@ -11,6 +15,22 @@ type Skill struct {
 	Category *string `gorm:"default:''"`
 	Name     string
 	Link     string
+}
+
+func GetSkillUser(userID string) *SkillUser {
+	su := SkillUser{ID: userID}
+	database.FirstOrCreate(&su, userID)
+	return &su
+}
+
+func GetSkill(name string) *Skill {
+	s := Skill{Name: name}
+	database.First(&s, name)
+	return &s
+}
+
+func setupSkill() {
+	database.AutoMigrate(&SkillUser{})
 }
 
 var (
@@ -128,6 +148,28 @@ var (
 					Required:    true,
 				},
 			},
+		},
+	}
+	skillCommandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
+		"skills": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			if len(i.ApplicationCommandData().Options) > 0 && i.ApplicationCommandData().Options[0].UserValue(s) != nil {
+				user := i.ApplicationCommandData().Options[0].UserValue(s)
+				su := GetSkillUser(user.ID)
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: fmt.Sprintf("%s has %d coins.", user.Username, su.Skill),
+					},
+				})
+			} else {
+				eu := GetEconomyUser(i.Member.User.ID)
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: fmt.Sprintf("You have %d coins.", eu.Coins),
+					},
+				})
+			}
 		},
 	}
 )
