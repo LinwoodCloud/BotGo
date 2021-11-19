@@ -51,6 +51,7 @@ func commands() []*discordgo.ApplicationCommand {
 	commands = append(commands, funCommands...)
 	commands = append(commands, economyCommands...)
 	commands = append(commands, skillCommands...)
+	commands = append(commands, teamCommands...)
 	return commands
 }
 
@@ -60,6 +61,7 @@ func init() {
 		economyCommandHandlers,
 		funCommandHandlers,
 		skillCommandHandlers,
+		teamCommandHandlers,
 	}
 	res := map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){}
 	for _, m := range ms {
@@ -91,13 +93,11 @@ func main() {
 	Setup()
 
 	commands := commands()
-	cmdIDs := make(map[string]string, len(commands))
 	for _, v := range commands {
-		rcmd, err := s.ApplicationCommandCreate(s.State.User.ID, GuildID, v)
+		_, err := s.ApplicationCommandCreate(s.State.User.ID, GuildID, v)
 		if err != nil {
 			log.Panicf("Cannot create '%v' command: %v", v.Name, err)
 		}
-		cmdIDs[rcmd.ID] = rcmd.Name
 	}
 
 	defer s.Close()
@@ -110,10 +110,14 @@ func main() {
 	if !*Cleanup {
 		return
 	}
-	for id, name := range cmdIDs {
-		err := s.ApplicationCommandDelete(s.State.User.ID, GuildID, id)
+
+	cmds, err := s.ApplicationCommands(s.State.User.ID, GuildID)
+
+	for cmdId := range cmds {
+		cmd := cmds[cmdId]
+		err := s.ApplicationCommandDelete(s.State.User.ID, GuildID, cmd.ID)
 		if err != nil {
-			log.Fatalf("Cannot delete slash command %q: %v", name, err)
+			log.Fatalf("Cannot delete slash command %q: %v", cmd.Name, err)
 		}
 	}
 }

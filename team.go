@@ -32,13 +32,13 @@ func (t *Team) RemoveMember(member string) {
 	}
 }
 
-func (t *Team) GetMember(member string) TeamMember {
+func (t *Team) GetMember(member string) *TeamMember {
 	for _, m := range t.Members {
 		if m.Guild == member {
-			return m
+			return &m
 		}
 	}
-	return TeamMember{}
+	return &TeamMember{}
 }
 
 func (t *TeamMember) Promote() {
@@ -52,6 +52,12 @@ func (t *TeamMember) Demote() {
 
 func (t *Team) Save() {
 	database.Save(t)
+}
+
+func CreateTeam(name string, description string) *Team {
+	team := Team{Name: name, Description: description}
+	database.Create(&team)
+	return &team
 }
 
 func SetupTeam() {
@@ -73,128 +79,195 @@ var (
 				{
 					Name:        "join",
 					Description: "Join a team",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
 						{
 							Name:        "team",
 							Description: "The team to join",
+							Type:        discordgo.ApplicationCommandOptionString,
+							Required:    false,
 						},
 					},
 				},
 				{
 					Name:        "leave",
 					Description: "Leave a team",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
 						{
 							Name:        "team",
 							Description: "The team to leave",
+							Type:        discordgo.ApplicationCommandOptionString,
+							Required:    false,
 						},
 					},
 				},
 				{
 					Name:        "invite",
 					Description: "Invite a guild to a team",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
 						{
 							Name:        "team",
 							Description: "The team to invite to",
+							Type:        discordgo.ApplicationCommandOptionString,
+							Required:    false,
 						},
 						{
 							Name:        "guild",
 							Description: "The guild to invite",
+							Type:        discordgo.ApplicationCommandOptionString,
+							Required:    false,
 						},
 					},
 				},
 				{
 					Name:        "kick",
 					Description: "Kick a member from a team",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
 						{
 							Name:        "team",
 							Description: "The team to kick from",
+							Type:        discordgo.ApplicationCommandOptionString,
+							Required:    false,
 						},
 						{
 							Name:        "member",
 							Description: "The member to kick",
+							Type:        discordgo.ApplicationCommandOptionUser,
+							Required:    false,
 						},
 					},
 				},
 				{
 					Name:        "list",
 					Description: "List all teams the guild are in",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
 				},
 				{
 					Name:        "info",
 					Description: "Get information about a team",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
 						{
 							Name:        "team",
 							Description: "The team to get information about",
+							Type:        discordgo.ApplicationCommandOptionString,
+							Required:    false,
 						},
 					},
 				},
 				{
 					Name:        "create",
 					Description: "Create a team",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
 						{
 							Name:        "name",
 							Description: "The name of the team",
+							Type:        discordgo.ApplicationCommandOptionString,
+							Required:    true,
+						},
+						{
+							Name:        "description",
+							Description: "The description of the team",
+							Type:        discordgo.ApplicationCommandOptionString,
+							Required:    false,
 						},
 					},
 				},
 				{
 					Name:        "delete",
 					Description: "Delete a team",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
 						{
 							Name:        "team",
 							Description: "The team to delete",
+							Type:        discordgo.ApplicationCommandOptionString,
+							Required:    true,
 						},
 					},
 				},
 				{
 					Name:        "set",
 					Description: "Set a team properties",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
 						{
 							Name:        "team",
 							Description: "The team to set properties for",
+							Type:        discordgo.ApplicationCommandOptionString,
+							Required:    true,
 						},
 						{
 							Name:        "description",
 							Description: "The description of the team",
+							Type:        discordgo.ApplicationCommandOptionString,
+							Required:    false,
 						},
 					},
 				},
 				{
 					Name:        "promote",
 					Description: "Promote a member to a team leader",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
 						{
 							Name:        "team",
 							Description: "The team to promote",
+							Type:        discordgo.ApplicationCommandOptionString,
+							Required:    true,
 						},
 						{
 							Name:        "member",
 							Description: "The member to promote",
+							Type:        discordgo.ApplicationCommandOptionString,
+							Required:    true,
 						},
 					},
 				},
 				{
 					Name:        "demote",
 					Description: "Demote a team leader to a member",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
 						{
 							Name:        "team",
 							Description: "The team to demote",
+							Type:        discordgo.ApplicationCommandOptionString,
+							Required:    true,
 						},
 						{
 							Name:        "member",
 							Description: "The member to demote",
+							Type:        discordgo.ApplicationCommandOptionString,
+							Required:    true,
 						},
 					},
 				},
 			},
+		},
+	}
+	teamCommandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
+		"teams": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			rootCmd := i.ApplicationCommandData().Options[0]
+			switch rootCmd.StringValue() {
+			case "create":
+				description := ""
+				name := rootCmd.Options[0].StringValue()
+				if len(rootCmd.Options) == 2 {
+					description = rootCmd.Options[1].StringValue()
+				}
+				CreateTeam(name, description)
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: "`" + name + "` created.",
+					}})
+
+			}
 		},
 	}
 )

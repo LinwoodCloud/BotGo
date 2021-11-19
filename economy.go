@@ -139,9 +139,6 @@ var (
 							Description: "The short name of the currency.",
 							Required:    false,
 						},
-						{
-							Name: "emoji",
-						},
 					},
 				},
 			},
