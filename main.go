@@ -78,6 +78,7 @@ func init() {
 }
 func Setup() {
 	SetupCore()
+	SetupTeam()
 	SetupEconomy()
 	SetupSkill()
 }

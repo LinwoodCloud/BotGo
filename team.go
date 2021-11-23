@@ -1,22 +1,27 @@
 package main
 
-import "github.com/bwmarrin/discordgo"
+import (
+	"errors"
+	"github.com/bwmarrin/discordgo"
+	"gorm.io/gorm"
+)
 
 type Team struct {
 	Name        string `gorm:"primary_key"`
 	Description string
-	Members     []TeamMember
+	Members     []TeamMember `gorm:"foreignkey:TeamName"`
 }
 
 type TeamMember struct {
-	Guild string `gorm:"primary_key"`
-	Role  TeamMemberRole
+	TeamName string `gorm:"primary_key"`
+	Guild    string `gorm:"primary_key"`
+	Role     TeamMemberRole
 }
 type TeamMemberRole int
 
 const (
 	TeamMemberRoleOwner TeamMemberRole = iota
-	TeamMemberRoleLeader
+	TeamMemberRoleModerator
 	TeamMemberRoleMember
 )
 
@@ -42,10 +47,10 @@ func (t *Team) GetMember(member string) *TeamMember {
 }
 
 func (t *TeamMember) Promote() {
-	t.Role = TeamMemberRoleLeader
+	t.Role = TeamMemberRoleModerator
 }
 func (t *TeamMember) Demote() {
-	if t.Role == TeamMemberRoleLeader {
+	if t.Role == TeamMemberRoleModerator {
 		t.Role = TeamMemberRoleMember
 	}
 }
@@ -54,20 +59,40 @@ func (t *Team) Save() {
 	database.Save(t)
 }
 
-func CreateTeam(name string, description string) *Team {
-	team := Team{Name: name, Description: description}
-	database.Create(&team)
-	return &team
+// CreateTeam creates a new team. Returns nil if the team already exists.
+func CreateTeam(guildID string, name string, description string) *Team {
+	team := Team{Name: name, Description: description, Members: []TeamMember{
+		{Guild: guildID, Role: TeamMemberRoleOwner},
+	}}
+	if errors.Is(database.First(&team).Error, gorm.ErrRecordNotFound) {
+		database.Create(&team)
+		team.AddMember(guildID)
+		return &team
+	}
+	return nil
+}
+
+func DeleteTeam(name string) {
+	var team Team
+	database.Where("name = ?", name).First(&team)
+	database.Delete(&team)
 }
 
 func SetupTeam() {
 	database.AutoMigrate(&Team{})
+	database.AutoMigrate(&TeamMember{})
 }
 
 func GetTeam(name string) *Team {
 	var team Team
 	database.Where("name = ?", name).First(&team)
 	return &team
+}
+
+func GetTeams(guild string) []TeamMember {
+	var tm []TeamMember
+	database.Where("guild = ?", guild).Find(&tm)
+	return tm
 }
 
 var (
@@ -253,20 +278,90 @@ var (
 	teamCommandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 		"teams": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			rootCmd := i.ApplicationCommandData().Options[0]
-			switch rootCmd.StringValue() {
+			// If user don't have manage permission, cancel
+			if i.Member.Permissions&discordgo.PermissionManageServer == 0 {
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: "You don't have permission to manage teams",
+					},
+				})
+				return
+			}
+			switch rootCmd.Name {
 			case "create":
 				description := ""
 				name := rootCmd.Options[0].StringValue()
 				if len(rootCmd.Options) == 2 {
 					description = rootCmd.Options[1].StringValue()
 				}
-				CreateTeam(name, description)
+				team := CreateTeam(i.GuildID, name, description)
+				if team == nil {
+					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{
+							Content: "Failed to create team",
+						},
+					})
+					return
+				}
 				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
 						Content: "`" + name + "` created.",
 					}})
-
+				break
+			case "delete":
+				name := rootCmd.Options[0].StringValue()
+				team := GetTeam(name)
+				if team == nil {
+					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{
+							Content: "Failed to delete team",
+						},
+					})
+					return
+				}
+				if team.GetMember(i.GuildID).Role != TeamMemberRoleOwner {
+					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{
+							Content: "You must be a team owner to delete a team",
+						},
+					})
+					return
+				}
+				DeleteTeam(name)
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: "`" + name + "` deleted.",
+					},
+				})
+				break
+			case "list":
+				teams := GetTeams(i.GuildID)
+				if len(teams) == 0 {
+					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{
+							Content: "No teams found",
+						},
+					})
+					return
+				}
+				var content string
+				for _, team := range teams {
+					content += "`" + team.TeamName + "`\n"
+				}
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: content,
+					},
+				})
+				break
 			}
 		},
 	}
