@@ -98,7 +98,7 @@ func GetTeams(guild string) []TeamMember {
 var (
 	teamCommands = []*discordgo.ApplicationCommand{
 		{
-			Name:        "teams",
+			Name:        "team",
 			Description: "Team management commands",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
@@ -276,7 +276,7 @@ var (
 		},
 	}
 	teamCommandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-		"teams": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		"team": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			rootCmd := i.ApplicationCommandData().Options[0]
 			// If user don't have manage permission, cancel
 			if i.Member.Permissions&discordgo.PermissionManageServer == 0 {
