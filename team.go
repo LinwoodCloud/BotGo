@@ -423,6 +423,38 @@ var (
 					},
 				})
 				break
+			case "set":
+				name := rootCmd.Options[0].StringValue()
+				team := GetTeam(name)
+				if team == nil {
+					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{
+							Content: "Failed to delete team",
+						},
+					})
+					return
+				}
+				if team.GetMember(i.GuildID).Role == TeamMemberRoleMember {
+					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{
+							Content: "You must be a team owner to delete a team",
+						},
+					})
+					return
+				}
+				if len(rootCmd.Options) > 1 {
+					description := rootCmd.Options[1].StringValue()
+					team.Description = description
+					team.Save()
+				}
+				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: "Team `" + team.Name + "` changed.",
+					},
+				})
 			}
 		},
 	}
