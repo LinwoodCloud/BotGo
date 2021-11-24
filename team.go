@@ -4,12 +4,13 @@ import (
 	"errors"
 	"github.com/bwmarrin/discordgo"
 	"gorm.io/gorm"
+	"strings"
 )
 
 type Team struct {
 	Name        string `gorm:"primary_key"`
 	Description string
-	Members     []TeamMember `gorm:"foreignkey:TeamName"`
+	Members     []TeamMember `gorm:"foreignkey:TeamName;association_foreignkey:Name"`
 }
 
 type TeamMember struct {
@@ -37,6 +38,23 @@ func (t *Team) RemoveMember(member string) {
 	}
 }
 
+func (t *Team) GetMemberNames() []string {
+	var tms []TeamMember
+	query := database.Where("team_name = ?", t.Name).Find(&tms)
+	if query.Error != nil {
+		return []string{}
+	}
+	names := make([]string, len(tms))
+	for i, m := range tms {
+		guild, err := s.Guild(m.Guild)
+		if err != nil {
+			continue
+		}
+		names[i] = m.Role.GetEmoji() + " " + guild.Name + " (" + guild.ID + ")"
+	}
+	return names
+}
+
 func (t *Team) GetMember(member string) *TeamMember {
 	for _, m := range t.Members {
 		if m.Guild == member {
@@ -52,6 +70,36 @@ func (t *TeamMember) Promote() {
 func (t *TeamMember) Demote() {
 	if t.Role == TeamMemberRoleModerator {
 		t.Role = TeamMemberRoleMember
+	}
+}
+func (t *TeamMember) GetTeam() *Team {
+	var team Team
+	database.First(&team, "name = ?", t.TeamName)
+	return &team
+}
+
+func (t *TeamMemberRole) String() string {
+	switch *t {
+	case TeamMemberRoleOwner:
+		return "Owner"
+	case TeamMemberRoleModerator:
+		return "Moderator"
+	case TeamMemberRoleMember:
+		return "Member"
+	default:
+		return "Unknown"
+	}
+}
+func (t *TeamMemberRole) GetEmoji() string {
+	switch *t {
+	case TeamMemberRoleOwner:
+		return ":crown:"
+	case TeamMemberRoleModerator:
+		return ":star:"
+	case TeamMemberRoleMember:
+		return ":busts_in_silhouette:"
+	default:
+		return ":question:"
 	}
 }
 
@@ -341,8 +389,8 @@ var (
 				})
 				break
 			case "list":
-				teams := GetTeams(i.GuildID)
-				if len(teams) == 0 {
+				tms := GetTeams(i.GuildID)
+				if len(tms) == 0 {
 					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 						Type: discordgo.InteractionResponseChannelMessageWithSource,
 						Data: &discordgo.InteractionResponseData{
@@ -351,14 +399,27 @@ var (
 					})
 					return
 				}
-				var content string
-				for _, team := range teams {
-					content += "`" + team.TeamName + "`\n"
+				embeds := make([]*discordgo.MessageEmbed, len(tms))
+				for index, tm := range tms {
+					team := tm.GetTeam()
+					embed := &discordgo.MessageEmbed{
+						Title:       team.Name,
+						Description: team.Description,
+						Fields: []*discordgo.MessageEmbedField{
+							{
+								Name: "Members",
+								// Value are team members separated with new line
+								Value: strings.Join(team.GetMemberNames(), "\n"),
+							},
+						},
+					}
+					embeds[index] = embed
 				}
 				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
-						Content: content,
+						Embeds:  embeds,
+						Content: "**Teams**",
 					},
 				})
 				break
