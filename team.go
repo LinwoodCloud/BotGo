@@ -64,6 +64,20 @@ func (t *Team) GetMember(member string) *TeamMember {
 	return &TeamMember{}
 }
 
+func (t *Team) BuildEmbed() *discordgo.MessageEmbed {
+	return &discordgo.MessageEmbed{
+		Title:       t.Name,
+		Description: t.Description,
+		Fields: []*discordgo.MessageEmbedField{
+			{
+				Name: "Members",
+				// Value are team members separated with new line
+				Value: strings.Join(t.GetMemberNames(), "\n"),
+			},
+		},
+	}
+}
+
 func (t *TeamMember) Promote() {
 	t.Role = TeamMemberRoleModerator
 }
@@ -122,6 +136,8 @@ func CreateTeam(guildID string, name string, description string) *Team {
 
 func DeleteTeam(name string) {
 	var team Team
+	// Delete team members where teamname
+	database.Where("team_name = ?", name).Delete(&TeamMember{})
 	database.Where("name = ?", name).First(&team)
 	database.Delete(&team)
 }
@@ -133,13 +149,22 @@ func SetupTeam() {
 
 func GetTeam(name string) *Team {
 	var team Team
-	database.Where("name = ?", name).First(&team)
+	result := database.Where("name = ?", name).First(&team)
+	if result.Error != nil {
+		return nil
+	}
 	return &team
 }
 
 func GetTeams(guild string) []TeamMember {
 	var tm []TeamMember
 	database.Where("guild = ?", guild).Find(&tm)
+	return tm
+}
+
+func GetTeamsLike(guild string, name string) []TeamMember {
+	var tm []TeamMember
+	database.Where("guild = ? AND team_name LIKE ?", guild, "%"+name+"%").Find(&tm)
 	return tm
 }
 
@@ -155,10 +180,11 @@ var (
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
 						{
-							Name:        "team",
-							Description: "The team to join",
-							Type:        discordgo.ApplicationCommandOptionString,
-							Required:    false,
+							Name:         "team",
+							Description:  "The team to join",
+							Autocomplete: true,
+							Type:         discordgo.ApplicationCommandOptionString,
+							Required:     false,
 						},
 					},
 				},
@@ -168,10 +194,11 @@ var (
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
 						{
-							Name:        "team",
-							Description: "The team to leave",
-							Type:        discordgo.ApplicationCommandOptionString,
-							Required:    false,
+							Name:         "team",
+							Description:  "The team to leave",
+							Autocomplete: true,
+							Type:         discordgo.ApplicationCommandOptionString,
+							Required:     false,
 						},
 					},
 				},
@@ -181,10 +208,11 @@ var (
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
 						{
-							Name:        "team",
-							Description: "The team to invite to",
-							Type:        discordgo.ApplicationCommandOptionString,
-							Required:    false,
+							Name:         "team",
+							Description:  "The team to invite to",
+							Autocomplete: true,
+							Type:         discordgo.ApplicationCommandOptionString,
+							Required:     false,
 						},
 						{
 							Name:        "guild",
@@ -200,10 +228,11 @@ var (
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
 						{
-							Name:        "team",
-							Description: "The team to kick from",
-							Type:        discordgo.ApplicationCommandOptionString,
-							Required:    false,
+							Name:         "team",
+							Description:  "The team to kick from",
+							Type:         discordgo.ApplicationCommandOptionString,
+							Autocomplete: true,
+							Required:     false,
 						},
 						{
 							Name:        "member",
@@ -224,10 +253,11 @@ var (
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
 						{
-							Name:        "team",
-							Description: "The team to get information about",
-							Type:        discordgo.ApplicationCommandOptionString,
-							Required:    false,
+							Name:         "team",
+							Description:  "The team to get information about",
+							Type:         discordgo.ApplicationCommandOptionString,
+							Autocomplete: true,
+							Required:     true,
 						},
 					},
 				},
@@ -256,10 +286,11 @@ var (
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
 						{
-							Name:        "team",
-							Description: "The team to delete",
-							Type:        discordgo.ApplicationCommandOptionString,
-							Required:    true,
+							Name:         "team",
+							Description:  "The team to delete",
+							Type:         discordgo.ApplicationCommandOptionString,
+							Autocomplete: true,
+							Required:     true,
 						},
 					},
 				},
@@ -269,10 +300,11 @@ var (
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
 						{
-							Name:        "team",
-							Description: "The team to set properties for",
-							Type:        discordgo.ApplicationCommandOptionString,
-							Required:    true,
+							Name:         "team",
+							Description:  "The team to set properties for",
+							Type:         discordgo.ApplicationCommandOptionString,
+							Autocomplete: true,
+							Required:     true,
 						},
 						{
 							Name:        "description",
@@ -288,10 +320,11 @@ var (
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
 						{
-							Name:        "team",
-							Description: "The team to promote",
-							Type:        discordgo.ApplicationCommandOptionString,
-							Required:    true,
+							Name:         "team",
+							Description:  "The team where the member should promote",
+							Autocomplete: true,
+							Type:         discordgo.ApplicationCommandOptionString,
+							Required:     true,
 						},
 						{
 							Name:        "member",
@@ -307,10 +340,11 @@ var (
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 					Options: []*discordgo.ApplicationCommandOption{
 						{
-							Name:        "team",
-							Description: "The team to demote",
-							Type:        discordgo.ApplicationCommandOptionString,
-							Required:    true,
+							Name:         "team",
+							Description:  "The team where the member should demote",
+							Autocomplete: true,
+							Type:         discordgo.ApplicationCommandOptionString,
+							Required:     true,
 						},
 						{
 							Name:        "member",
@@ -327,134 +361,161 @@ var (
 		"team": func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			rootCmd := i.ApplicationCommandData().Options[0]
 			// If user don't have manage permission, cancel
-			if i.Member.Permissions&discordgo.PermissionManageServer == 0 {
-				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseChannelMessageWithSource,
-					Data: &discordgo.InteractionResponseData{
-						Content: "You don't have permission to manage teams",
-					},
-				})
-				return
-			}
-			switch rootCmd.Name {
-			case "create":
-				description := ""
-				name := rootCmd.Options[0].StringValue()
-				if len(rootCmd.Options) == 2 {
-					description = rootCmd.Options[1].StringValue()
-				}
-				team := CreateTeam(i.GuildID, name, description)
-				if team == nil {
+			switch i.Type {
+			case discordgo.InteractionApplicationCommand:
+				if i.Member.Permissions&discordgo.PermissionManageServer == 0 {
 					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 						Type: discordgo.InteractionResponseChannelMessageWithSource,
 						Data: &discordgo.InteractionResponseData{
-							Content: "Failed to create team",
+							Content: "You don't have permission to manage teams",
 						},
 					})
 					return
 				}
-				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseChannelMessageWithSource,
-					Data: &discordgo.InteractionResponseData{
-						Content: "`" + name + "` created.",
-					}})
-				break
-			case "delete":
-				name := rootCmd.Options[0].StringValue()
-				team := GetTeam(name)
-				if team == nil {
-					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-						Type: discordgo.InteractionResponseChannelMessageWithSource,
-						Data: &discordgo.InteractionResponseData{
-							Content: "Failed to delete team",
-						},
-					})
-					return
-				}
-				if team.GetMember(i.GuildID).Role != TeamMemberRoleOwner {
-					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-						Type: discordgo.InteractionResponseChannelMessageWithSource,
-						Data: &discordgo.InteractionResponseData{
-							Content: "You must be a team owner to delete a team",
-						},
-					})
-					return
-				}
-				DeleteTeam(name)
-				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseChannelMessageWithSource,
-					Data: &discordgo.InteractionResponseData{
-						Content: "`" + name + "` deleted.",
-					},
-				})
-				break
-			case "list":
-				tms := GetTeams(i.GuildID)
-				if len(tms) == 0 {
-					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-						Type: discordgo.InteractionResponseChannelMessageWithSource,
-						Data: &discordgo.InteractionResponseData{
-							Content: "No teams found",
-						},
-					})
-					return
-				}
-				embeds := make([]*discordgo.MessageEmbed, len(tms))
-				for index, tm := range tms {
-					team := tm.GetTeam()
-					embed := &discordgo.MessageEmbed{
-						Title:       team.Name,
-						Description: team.Description,
-						Fields: []*discordgo.MessageEmbedField{
-							{
-								Name: "Members",
-								// Value are team members separated with new line
-								Value: strings.Join(team.GetMemberNames(), "\n"),
-							},
-						},
+				switch rootCmd.Name {
+				case "create":
+					description := ""
+					name := rootCmd.Options[0].StringValue()
+					if len(rootCmd.Options) == 2 {
+						description = rootCmd.Options[1].StringValue()
 					}
-					embeds[index] = embed
+					team := CreateTeam(i.GuildID, name, description)
+					if team == nil {
+						s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+							Type: discordgo.InteractionResponseChannelMessageWithSource,
+							Data: &discordgo.InteractionResponseData{
+								Content: "Failed to create team",
+							},
+						})
+						return
+					}
+					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{
+							Content: "`" + name + "` created.",
+						}})
+					break
+				case "delete":
+					name := rootCmd.Options[0].StringValue()
+					team := GetTeam(name)
+					if team == nil {
+						s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+							Type: discordgo.InteractionResponseChannelMessageWithSource,
+							Data: &discordgo.InteractionResponseData{
+								Content: "Failed to delete team",
+							},
+						})
+						return
+					}
+					if team.GetMember(i.GuildID).Role != TeamMemberRoleOwner {
+						s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+							Type: discordgo.InteractionResponseChannelMessageWithSource,
+							Data: &discordgo.InteractionResponseData{
+								Content: "You must be a team owner to delete a team",
+							},
+						})
+						return
+					}
+					DeleteTeam(name)
+					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{
+							Content: "`" + name + "` deleted.",
+						},
+					})
+					break
+				case "list":
+					tms := GetTeams(i.GuildID)
+					if len(tms) == 0 {
+						s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+							Type: discordgo.InteractionResponseChannelMessageWithSource,
+							Data: &discordgo.InteractionResponseData{
+								Content: "No teams found",
+							},
+						})
+						return
+					}
+					embeds := make([]*discordgo.MessageEmbed, len(tms))
+					for index, tm := range tms {
+						team := tm.GetTeam()
+						embeds[index] = team.BuildEmbed()
+					}
+					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{
+							Embeds:  embeds,
+							Content: "**Teams**",
+						},
+					})
+					break
+				case "set":
+					name := rootCmd.Options[0].StringValue()
+					team := GetTeam(name)
+					if team == nil {
+						s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+							Type: discordgo.InteractionResponseChannelMessageWithSource,
+							Data: &discordgo.InteractionResponseData{
+								Content: "Team not found",
+							},
+						})
+						return
+					}
+					if team.GetMember(i.GuildID).Role == TeamMemberRoleMember {
+						s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+							Type: discordgo.InteractionResponseChannelMessageWithSource,
+							Data: &discordgo.InteractionResponseData{
+								Content: "You must be a team owner to delete a team",
+							},
+						})
+						return
+					}
+					if len(rootCmd.Options) > 1 {
+						description := rootCmd.Options[1].StringValue()
+						team.Description = description
+						team.Save()
+					}
+					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{
+							Content: "Team `" + team.Name + "` changed.",
+						},
+					})
+					break
+				case "info":
+					name := rootCmd.Options[0].StringValue()
+					team := GetTeam(name)
+					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{
+							Content: "**Information**",
+							Embeds:  []*discordgo.MessageEmbed{team.BuildEmbed()},
+						},
+					})
 				}
-				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseChannelMessageWithSource,
-					Data: &discordgo.InteractionResponseData{
-						Embeds:  embeds,
-						Content: "**Teams**",
-					},
-				})
 				break
-			case "set":
-				name := rootCmd.Options[0].StringValue()
-				team := GetTeam(name)
-				if team == nil {
-					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-						Type: discordgo.InteractionResponseChannelMessageWithSource,
+			case discordgo.InteractionApplicationCommandAutocomplete:
+				var choices []*discordgo.ApplicationCommandOptionChoice
+				if rootCmd.Name != "list" && rootCmd.Name != "create" && rootCmd.Options[0].Focused {
+					tms := GetTeamsLike(i.GuildID, rootCmd.Options[0].StringValue())
+					choices = make([]*discordgo.ApplicationCommandOptionChoice, len(tms))
+					for index, tm := range tms {
+						choices[index] = &discordgo.ApplicationCommandOptionChoice{
+							Name:  tm.TeamName,
+							Value: tm.TeamName,
+						}
+					}
+				}
+				if choices != nil {
+					err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionApplicationCommandAutocompleteResult,
 						Data: &discordgo.InteractionResponseData{
-							Content: "Failed to delete team",
+							Choices: choices,
 						},
 					})
-					return
+					if err != nil {
+						panic(err)
+					}
 				}
-				if team.GetMember(i.GuildID).Role == TeamMemberRoleMember {
-					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-						Type: discordgo.InteractionResponseChannelMessageWithSource,
-						Data: &discordgo.InteractionResponseData{
-							Content: "You must be a team owner to delete a team",
-						},
-					})
-					return
-				}
-				if len(rootCmd.Options) > 1 {
-					description := rootCmd.Options[1].StringValue()
-					team.Description = description
-					team.Save()
-				}
-				s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseChannelMessageWithSource,
-					Data: &discordgo.InteractionResponseData{
-						Content: "Team `" + team.Name + "` changed.",
-					},
-				})
 			}
 		},
 	}
