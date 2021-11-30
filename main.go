@@ -83,6 +83,10 @@ func Setup() {
 	SetupSkill()
 }
 
+func SetupWeb() {
+
+}
+
 func main() {
 	s.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
 		log.Println("Bot is up!")

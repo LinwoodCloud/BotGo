@@ -6,7 +6,7 @@ require (
 	github.com/bwmarrin/discordgo v0.23.3-0.20211117035633-fd6228c0d536
 	github.com/joho/godotenv v1.4.0
 	gorm.io/driver/sqlite v1.2.6
-	gorm.io/gorm v1.22.3
+	gorm.io/gorm v1.22.4
 )
 
 require (

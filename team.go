@@ -24,6 +24,8 @@ const (
 	TeamMemberRoleOwner TeamMemberRole = iota
 	TeamMemberRoleModerator
 	TeamMemberRoleMember
+	TeamMemberRoleBanned
+	TeamMemberRoleInvited
 )
 
 func (t *Team) AddMember(guild string) {
@@ -40,7 +42,7 @@ func (t *Team) RemoveMember(member string) {
 
 func (t *Team) GetMemberNames() []string {
 	var tms []TeamMember
-	query := database.Where("team_name = ?", t.Name).Find(&tms)
+	query := database.Where("team_name = ? AND role != ? AND role != ?", t.Name, TeamMemberRoleBanned, TeamMemberRoleInvited).Find(&tms)
 	if query.Error != nil {
 		return []string{}
 	}
@@ -56,12 +58,12 @@ func (t *Team) GetMemberNames() []string {
 }
 
 func (t *Team) GetMember(member string) *TeamMember {
-	for _, m := range t.Members {
-		if m.Guild == member {
-			return &m
-		}
+	var tm TeamMember
+	query := database.Where("team_name = ? AND guild = ?", t.Name, member).First(&tm)
+	if query.Error != nil {
+		return nil
 	}
-	return &TeamMember{}
+	return &tm
 }
 
 func (t *Team) BuildEmbed() *discordgo.MessageEmbed {
@@ -489,6 +491,26 @@ var (
 						Data: &discordgo.InteractionResponseData{
 							Content: "**Information**",
 							Embeds:  []*discordgo.MessageEmbed{team.BuildEmbed()},
+						},
+					})
+				case "leave":
+					name := rootCmd.Options[0].StringValue()
+					team := GetTeam(name)
+					tm := team.GetMember(i.GuildID)
+					if tm.Role == TeamMemberRoleOwner {
+						s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+							Type: discordgo.InteractionResponseChannelMessageWithSource,
+							Data: &discordgo.InteractionResponseData{
+								Content: "You cannot leave if you are the owner of the team",
+							},
+						})
+						return
+					}
+					team.RemoveMember(i.GuildID)
+					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{
+							Content: "`" + name + "` left.",
 						},
 					})
 				}
