@@ -123,6 +123,10 @@ func (t *Team) Save() {
 	database.Save(t)
 }
 
+func (t *TeamMember) Save() {
+	database.Save(t)
+}
+
 // CreateTeam creates a new team. Returns nil if the team already exists.
 func CreateTeam(guildID string, name string, description string) *Team {
 	team := Team{Name: name, Description: description, Members: []TeamMember{
@@ -374,6 +378,33 @@ var (
 					})
 					return
 				}
+				var teamName string
+				var team *Team
+				var currentTm *TeamMember
+				if len(i.ApplicationCommandData().Options) > 1 && (rootCmd.Name != "create" && rootCmd.Name != "list") {
+					teamName = i.ApplicationCommandData().Options[0].StringValue()
+					team = GetTeam(teamName)
+					if team == nil {
+						s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+							Type: discordgo.InteractionResponseChannelMessageWithSource,
+							Data: &discordgo.InteractionResponseData{
+								Content: ":no_entry: Team not found",
+							},
+						})
+						return
+					}
+					currentTm = team.GetMember(i.GuildID)
+					if rootCmd.Name != "info" && rootCmd.Name != "leave" && currentTm.Role != TeamMemberRoleOwner {
+						s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+							Type: discordgo.InteractionResponseChannelMessageWithSource,
+							Data: &discordgo.InteractionResponseData{
+								Content: ":no_entry: You don't have permission to manage this team",
+							},
+						})
+						return
+					}
+
+				}
 				switch rootCmd.Name {
 				case "create":
 					description := ""
@@ -398,31 +429,11 @@ var (
 						}})
 					break
 				case "delete":
-					name := rootCmd.Options[0].StringValue()
-					team := GetTeam(name)
-					if team == nil {
-						s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-							Type: discordgo.InteractionResponseChannelMessageWithSource,
-							Data: &discordgo.InteractionResponseData{
-								Content: "Failed to delete team",
-							},
-						})
-						return
-					}
-					if team.GetMember(i.GuildID).Role != TeamMemberRoleOwner {
-						s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-							Type: discordgo.InteractionResponseChannelMessageWithSource,
-							Data: &discordgo.InteractionResponseData{
-								Content: "You must be a team owner to delete a team",
-							},
-						})
-						return
-					}
-					DeleteTeam(name)
+					DeleteTeam(team.Name)
 					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 						Type: discordgo.InteractionResponseChannelMessageWithSource,
 						Data: &discordgo.InteractionResponseData{
-							Content: "`" + name + "` deleted.",
+							Content: "`" + team.Name + "` deleted.",
 						},
 					})
 					break
@@ -451,17 +462,6 @@ var (
 					})
 					break
 				case "set":
-					name := rootCmd.Options[0].StringValue()
-					team := GetTeam(name)
-					if team == nil {
-						s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-							Type: discordgo.InteractionResponseChannelMessageWithSource,
-							Data: &discordgo.InteractionResponseData{
-								Content: "Team not found",
-							},
-						})
-						return
-					}
 					if team.GetMember(i.GuildID).Role == TeamMemberRoleMember {
 						s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 							Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -484,8 +484,6 @@ var (
 					})
 					break
 				case "info":
-					name := rootCmd.Options[0].StringValue()
-					team := GetTeam(name)
 					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 						Type: discordgo.InteractionResponseChannelMessageWithSource,
 						Data: &discordgo.InteractionResponseData{
@@ -494,10 +492,7 @@ var (
 						},
 					})
 				case "leave":
-					name := rootCmd.Options[0].StringValue()
-					team := GetTeam(name)
-					tm := team.GetMember(i.GuildID)
-					if tm.Role == TeamMemberRoleOwner {
+					if currentTm.Role == TeamMemberRoleOwner {
 						s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 							Type: discordgo.InteractionResponseChannelMessageWithSource,
 							Data: &discordgo.InteractionResponseData{
@@ -510,9 +505,52 @@ var (
 					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 						Type: discordgo.InteractionResponseChannelMessageWithSource,
 						Data: &discordgo.InteractionResponseData{
-							Content: "`" + name + "` left.",
+							Content: "`" + teamName + "` left.",
 						},
 					})
+					break
+				case "promote":
+					tmName := rootCmd.Options[1].StringValue()
+					tm := team.GetMember(tmName)
+					if tm == nil {
+						s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+							Type: discordgo.InteractionResponseChannelMessageWithSource,
+							Data: &discordgo.InteractionResponseData{
+								Content: ":no_entry: Cannot find `" + tmName + "`.",
+							},
+						})
+						return
+					}
+					tm.Promote()
+					tm.Save()
+					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{
+							Content: ":no_entry: `" + tmName + "` promoted.",
+						},
+					})
+					break
+				case "demote":
+					tmName := rootCmd.Options[1].StringValue()
+					tm := team.GetMember(tmName)
+					if tm == nil {
+						s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+							Type: discordgo.InteractionResponseChannelMessageWithSource,
+							Data: &discordgo.InteractionResponseData{
+								Content: ":no_entry: Cannot find `" + tmName + "`.",
+							},
+						})
+						return
+					}
+					tm.Demote()
+					tm.Save()
+					s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+						Type: discordgo.InteractionResponseChannelMessageWithSource,
+						Data: &discordgo.InteractionResponseData{
+							Content: ":no_entry: `" + tmName + "` demoted.",
+						},
+					})
+					break
 				}
 				break
 			case discordgo.InteractionApplicationCommandAutocomplete:

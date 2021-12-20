@@ -29,9 +29,9 @@ func init() {
 		}
 	}
 	var err error
-	token := os.Getenv("CHEST_BOT_TOKEN")
+	token := os.Getenv("LINWOOD_BOT_TOKEN")
 	if token == "" {
-		log.Fatal("CHEST_BOT_TOKEN not set")
+		log.Fatal("LINWOOD_BOT_TOKEN not set")
 	}
 	s, err = discordgo.New("Bot " + token)
 	database = buildDatabase()
